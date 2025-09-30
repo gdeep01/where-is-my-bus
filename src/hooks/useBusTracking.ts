@@ -17,9 +17,8 @@ export const useBusTracking = () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      if (!supabaseUrl || !supabaseKey || 
-          supabaseUrl === 'https://your-project-id.supabase.co' || 
-          supabaseKey === 'your-anon-key-here') {
+      if (supabaseUrl === 'https://placeholder.supabase.co' || 
+          supabaseKey === 'placeholder-key') {
         setError('Supabase not configured. Please click the "Supabase" button in settings to set up your database.');
         setBuses([]);
         return;
