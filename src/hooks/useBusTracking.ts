@@ -20,8 +20,11 @@ export const useBusTracking = () => {
       if (!supabaseUrl || !supabaseKey || 
           supabaseUrl === 'https://your-project-id.supabase.co' || 
           supabaseKey === 'your-anon-key-here') {
-        throw new Error('Supabase not configured. Please set up your Supabase project credentials in the .env file.');
+        setError('Supabase not configured. Please click the "Supabase" button in settings to set up your database.');
+        setBuses([]);
+        return;
       }
+
       // Fetch buses with their latest locations and current trips
       const { data: busesData, error: busesError } = await supabase
         .from('buses')
