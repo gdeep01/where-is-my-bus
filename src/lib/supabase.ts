@@ -3,11 +3,21 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+// Provide default values for development if environment variables are not set
+const defaultUrl = 'https://your-project-id.supabase.co';
+const defaultKey = 'your-anon-key-here';
+
+// Use environment variables if available, otherwise use defaults
+const finalUrl = supabaseUrl && supabaseUrl !== 'https://your-project-id.supabase.co' ? supabaseUrl : defaultUrl;
+const finalKey = supabaseAnonKey && supabaseAnonKey !== 'your-anon-key-here' ? supabaseAnonKey : defaultKey;
+
+// Show warning if using default values
+if (finalUrl === defaultUrl || finalKey === defaultKey) {
+  console.warn('⚠️ Using default Supabase credentials. Please update your .env file with actual Supabase project credentials.');
+  console.warn('📝 Instructions: Click the "Supabase" button in settings to set up your database, then update the .env file.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(finalUrl, finalKey, {
   realtime: {
     params: {
       eventsPerSecond: 10,
