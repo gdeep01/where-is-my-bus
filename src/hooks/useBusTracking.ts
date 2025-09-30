@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { mockBuses } from '../lib/mockData';
 import { Bus, Trip, BusLocation, BusWithLocation } from '../types';
 import toast from 'react-hot-toast';
 
@@ -13,14 +14,10 @@ export const useBusTracking = () => {
       setLoading(true);
       setError(null);
 
-      // Check if Supabase is properly configured
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (supabaseUrl === 'https://placeholder.supabase.co' || 
-          supabaseKey === 'placeholder-key') {
-        setError('Supabase not configured. Please click the "Supabase" button in settings to set up your database.');
-        setBuses([]);
+      // Use mock data if Supabase is not configured
+      if (!isSupabaseConfigured) {
+        console.log('Using mock data for demonstration');
+        setBuses(mockBuses);
         return;
       }
 
@@ -74,6 +71,29 @@ export const useBusTracking = () => {
 
   const startTrip = useCallback(async (busId: string, conductorName: string) => {
     try {
+      // Mock implementation if Supabase not configured
+      if (!isSupabaseConfigured) {
+        toast.success('Trip started (Demo Mode)');
+        const mockTrip = {
+          id: Date.now().toString(),
+          bus_id: busId,
+          conductor_name: conductorName,
+          start_time: new Date().toISOString(),
+          end_time: null,
+          status: 'active' as const,
+          created_at: new Date().toISOString(),
+        };
+        
+        // Update mock data
+        setBuses(prev => prev.map(bus => 
+          bus.id === busId 
+            ? { ...bus, status: 'online' as const, current_trip: mockTrip }
+            : bus
+        ));
+        
+        return mockTrip;
+      }
+
       // End any existing active trips for this bus
       await supabase
         .from('trips')
@@ -112,6 +132,17 @@ export const useBusTracking = () => {
 
   const endTrip = useCallback(async (tripId: string, busId: string) => {
     try {
+      // Mock implementation if Supabase not configured
+      if (!isSupabaseConfigured) {
+        toast.success('Trip ended (Demo Mode)');
+        setBuses(prev => prev.map(bus => 
+          bus.id === busId 
+            ? { ...bus, status: 'offline' as const, current_trip: undefined }
+            : bus
+        ));
+        return;
+      }
+
       // End the trip
       const { error } = await supabase
         .from('trips')
@@ -144,6 +175,29 @@ export const useBusTracking = () => {
     accuracy?: number | null
   ) => {
     try {
+      // Mock implementation if Supabase not configured
+      if (!isSupabaseConfigured) {
+        setBuses(prev => prev.map(bus => 
+          bus.id === busId 
+            ? { 
+                ...bus, 
+                latest_location: {
+                  id: Date.now().toString(),
+                  bus_id: busId,
+                  trip_id: tripId,
+                  latitude,
+                  longitude,
+                  speed,
+                  accuracy,
+                  timestamp: new Date().toISOString(),
+                  created_at: new Date().toISOString(),
+                }
+              }
+            : bus
+        ));
+        return;
+      }
+
       const { error } = await supabase
         .from('bus_locations')
         .insert({
@@ -172,6 +226,11 @@ export const useBusTracking = () => {
   }, []);
 
   const subscribeToLocationUpdates = useCallback((callback: (payload: any) => void) => {
+    // Return no-op function if Supabase not configured
+    if (!isSupabaseConfigured) {
+      return () => {};
+    }
+
     const subscription = supabase
       .channel('bus_locations')
       .on(
@@ -191,6 +250,11 @@ export const useBusTracking = () => {
   }, []);
 
   const subscribeToBusUpdates = useCallback((callback: (payload: any) => void) => {
+    // Return no-op function if Supabase not configured
+    if (!isSupabaseConfigured) {
+      return () => {};
+    }
+
     const subscription = supabase
       .channel('buses')
       .on(
