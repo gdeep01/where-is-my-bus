@@ -81,6 +81,7 @@ const SimplePassengerDashboard: React.FC = () => {
   };
 
   const handleBusSelect = async (bus: Bus) => {
+    console.log('Bus selected:', bus);
     setSelectedBus(bus);
     
     // Fetch latest location
@@ -90,10 +91,15 @@ const SimplePassengerDashboard: React.FC = () => {
       .eq('bus_id', bus.id)
       .order('timestamp', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle(); // Changed from .single() to .maybeSingle() to handle no data
 
+    console.log('Location data:', data, 'Error:', error);
+    
     if (!error && data) {
       setBusLocation(data);
+    } else if (!data) {
+      console.log('No location data found for this bus');
+      setBusLocation(null);
     }
   };
 
@@ -169,8 +175,22 @@ const SimplePassengerDashboard: React.FC = () => {
           </div>
 
           <div className="lg:col-span-2">
-            {selectedBus && busLocation ? (
-              <BusMap bus={selectedBus} location={busLocation} height="calc(100vh - 200px)" />
+            {selectedBus ? (
+              busLocation ? (
+                <BusMap bus={selectedBus} location={busLocation} height="calc(100vh - 200px)" />
+              ) : (
+                <Card className="p-8 h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-lg text-muted-foreground mb-2">
+                      Waiting for location data for Bus {selectedBus.bus_number}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      The conductor needs to start tracking this bus first
+                    </p>
+                  </div>
+                </Card>
+              )
             ) : (
               <Card className="p-8 h-full flex items-center justify-center">
                 <div className="text-center">
