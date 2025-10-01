@@ -1,0 +1,208 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { useGeolocation } from '@/hooks/useGeolocation';
+import BusMap from '@/components/BusMap';
+import type { Bus, BusLocation } from '@/lib/supabase';
+
+const SimpleConductorDashboard: React.FC = () => {
+  const [buses, setBuses] = useState<Bus[]>([]);
+  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
+  const [busLocation, setBusLocation] = useState<BusLocation | null>(null);
+  const [fromDestination, setFromDestination] = useState('');
+  const [toDestination, setToDestination] = useState('');
+  const [isTracking, setIsTracking] = useState(false);
+  const { position, startWatching, stopWatching } = useGeolocation({ watch: false });
+
+  useEffect(() => {
+    fetchBuses();
+  }, []);
+
+  useEffect(() => {
+    if (isTracking && position && selectedBus) {
+      updateLocation();
+    }
+  }, [position, isTracking]);
+
+  const fetchBuses = async () => {
+    const { data, error } = await supabase
+      .from('buses')
+      .select('*')
+      .order('bus_number');
+    
+    if (error) {
+      toast.error('Failed to fetch buses');
+      return;
+    }
+    setBuses(data || []);
+  };
+
+  const updateLocation = async () => {
+    if (!selectedBus || !position) return;
+
+    const { error } = await supabase.from('bus_locations').insert({
+      bus_id: selectedBus.id,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      speed: position.speed || 0,
+      accuracy: position.accuracy,
+      heading: position.heading,
+    });
+
+    if (error) {
+      console.error('Error updating location:', error);
+    } else {
+      setBusLocation({
+        bus_id: selectedBus.id,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: position.speed || 0,
+        accuracy: position.accuracy,
+        heading: position.heading,
+        timestamp: new Date().toISOString(),
+      } as BusLocation);
+    }
+  };
+
+  const handleSetRoute = async () => {
+    if (!selectedBus || !fromDestination || !toDestination) {
+      toast.error('Please select a bus and enter destinations');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('buses')
+      .update({
+        from_destination: fromDestination,
+        to_destination: toDestination,
+        status: 'active',
+      })
+      .eq('id', selectedBus.id);
+
+    if (error) {
+      toast.error('Failed to set route');
+      return;
+    }
+
+    toast.success('Route set successfully');
+    setIsTracking(true);
+    startWatching();
+    fetchBuses();
+  };
+
+  const handleStopTracking = async () => {
+    if (!selectedBus) return;
+
+    const { error } = await supabase
+      .from('buses')
+      .update({ status: 'inactive' })
+      .eq('id', selectedBus.id);
+
+    if (error) {
+      toast.error('Failed to stop tracking');
+      return;
+    }
+
+    setIsTracking(false);
+    stopWatching();
+    toast.success('Tracking stopped');
+  };
+
+  return (
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">Conductor Dashboard</h1>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-4">
+            <Card className="p-4">
+              <h2 className="text-xl font-semibold mb-4">Select Bus</h2>
+              <div className="space-y-2">
+                {buses.map((bus) => (
+                  <Button
+                    key={bus.id}
+                    variant={selectedBus?.id === bus.id ? 'default' : 'outline'}
+                    className="w-full justify-start"
+                    onClick={() => setSelectedBus(bus)}
+                  >
+                    Bus {bus.bus_number}
+                  </Button>
+                ))}
+              </div>
+            </Card>
+
+            {selectedBus && (
+              <Card className="p-4">
+                <h2 className="text-xl font-semibold mb-4">Set Route</h2>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="from">From</Label>
+                    <Input
+                      id="from"
+                      value={fromDestination}
+                      onChange={(e) => setFromDestination(e.target.value)}
+                      placeholder="Starting point"
+                      disabled={isTracking}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="to">To</Label>
+                    <Input
+                      id="to"
+                      value={toDestination}
+                      onChange={(e) => setToDestination(e.target.value)}
+                      placeholder="Destination"
+                      disabled={isTracking}
+                    />
+                  </div>
+                  {!isTracking ? (
+                    <Button onClick={handleSetRoute} className="w-full">
+                      Start Trip
+                    </Button>
+                  ) : (
+                    <Button onClick={handleStopTracking} variant="destructive" className="w-full">
+                      End Trip
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {position && (
+              <Card className="p-4">
+                <h3 className="font-semibold mb-2">Current Location</h3>
+                <p className="text-sm text-muted-foreground">
+                  Lat: {position.latitude.toFixed(6)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Lng: {position.longitude.toFixed(6)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Speed: {position.speed?.toFixed(1) || 0} km/h
+                </p>
+              </Card>
+            )}
+          </div>
+
+          <div className="lg:col-span-2">
+            {selectedBus && busLocation ? (
+              <BusMap bus={selectedBus} location={busLocation} height="calc(100vh - 200px)" />
+            ) : (
+              <Card className="p-8 h-full flex items-center justify-center">
+                <p className="text-muted-foreground">
+                  Select a bus and start tracking to see the map
+                </p>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SimpleConductorDashboard;

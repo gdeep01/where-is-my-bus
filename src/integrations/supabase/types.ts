@@ -74,9 +74,11 @@ export type Database = {
           capacity: number | null
           conductor_id: string | null
           created_at: string | null
+          from_destination: string | null
           id: string
           route_name: string
           status: Database["public"]["Enums"]["bus_status"]
+          to_destination: string | null
           updated_at: string | null
         }
         Insert: {
@@ -84,9 +86,11 @@ export type Database = {
           capacity?: number | null
           conductor_id?: string | null
           created_at?: string | null
+          from_destination?: string | null
           id?: string
           route_name: string
           status?: Database["public"]["Enums"]["bus_status"]
+          to_destination?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -94,9 +98,11 @@ export type Database = {
           capacity?: number | null
           conductor_id?: string | null
           created_at?: string | null
+          from_destination?: string | null
           id?: string
           route_name?: string
           status?: Database["public"]["Enums"]["bus_status"]
+          to_destination?: string | null
           updated_at?: string | null
         }
         Relationships: [
