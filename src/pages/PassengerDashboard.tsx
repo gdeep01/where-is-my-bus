@@ -27,7 +27,7 @@ const PassengerDashboard: React.FC = () => {
     navigate('/');
   };
 
-  const handleBusSelect = (bus) => {
+  const handleBusSelect = (bus: { id: string }) => {
     setSelectedBusId(bus.id);
     setSidebarOpen(false); // Close mobile sidebar
   };
