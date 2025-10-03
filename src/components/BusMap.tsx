@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import React, { useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
@@ -49,15 +49,6 @@ const BusMap: React.FC<BusMapProps> = ({
 }) => {
   const [autoCenter, setAutoCenter] = useState(true);
 
-  const AutoCenter: React.FC<{ center: [number, number]; auto: boolean }> = ({ center, auto }) => {
-    const map = useMap();
-    useEffect(() => {
-      if (auto) {
-        map.flyTo(center, map.getZoom(), { duration: 1 });
-      }
-    }, [center, auto, map]);
-    return null;
-  };
 
   if (!location || !bus) {
     return (
@@ -91,7 +82,7 @@ const BusMap: React.FC<BusMapProps> = ({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <AutoCenter center={center} auto={autoCenter} />
+        
         <Marker position={center} icon={createBusIcon(isActive)}>
           <Popup>
             <div className="p-2">
