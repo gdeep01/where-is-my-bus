@@ -44,12 +44,17 @@ const SimpleConductorDashboard: React.FC = () => {
   const updateLocation = async () => {
     if (!selectedBus || !position) return;
 
+    const accuracy =
+      typeof position.accuracy === 'number' && isFinite(position.accuracy)
+        ? Math.min(position.accuracy, 999.99)
+        : null;
+
     const { error } = await supabase.from('bus_locations').insert({
       bus_id: selectedBus.id,
       latitude: position.latitude,
       longitude: position.longitude,
       speed: position.speed || 0,
-      accuracy: position.accuracy,
+      accuracy,
       heading: position.heading,
     });
 
