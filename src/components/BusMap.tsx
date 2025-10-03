@@ -78,33 +78,6 @@ const BusMap: React.FC<BusMapProps> = ({
     : "Unknown";
   const speed = location.speed ? `${location.speed.toFixed(1)} km/h` : "N/A";
 
-  // Wrap MapContainer children as a function to satisfy libraries expecting function-as-child
-  const mapChildren: any = () => (
-    <>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <AutoCenter center={center} auto={autoCenter} />
-      <Marker position={center} icon={createBusIcon(isActive)}>
-        <Popup>
-          <div className="p-2">
-            <h3 className="font-bold mb-1">Bus {bus.bus_number}</h3>
-            <p className="text-sm">Status: {bus.status}</p>
-            <p className="text-sm">Route: {bus.route_name || "N/A"}</p>
-            {bus.from_destination && bus.to_destination && (
-              <p className="text-sm">
-                {bus.from_destination} → {bus.to_destination}
-              </p>
-            )}
-            <p className="text-sm">Speed: {speed}</p>
-            <p className="text-sm text-muted-foreground">Last update: {lastUpdate}</p>
-          </div>
-        </Popup>
-      </Marker>
-    </>
-  );
-
   return (
     <div className={`relative ${className}`}>
       <MapContainer
@@ -114,7 +87,29 @@ const BusMap: React.FC<BusMapProps> = ({
         style={{ height, width: "100%", borderRadius: "8px" }}
         className="z-0"
       >
-        {mapChildren}
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <AutoCenter center={center} auto={autoCenter} />
+        <Marker position={center} icon={createBusIcon(isActive)}>
+          <Popup>
+            <div className="p-2">
+              <h3 className="font-bold mb-1">Bus {bus.bus_number}</h3>
+              <p className="text-sm">Status: {bus.status}</p>
+              <p className="text-sm">Route: {bus.route_name || "N/A"}</p>
+              {bus.from_destination && bus.to_destination && (
+                <p className="text-sm">
+                  {bus.from_destination} → {bus.to_destination}
+                </p>
+              )}
+              <p className="text-sm">Speed: {speed}</p>
+              <p className="text-sm text-muted-foreground">
+                Last update: {lastUpdate}
+              </p>
+            </div>
+          </Popup>
+        </Marker>
       </MapContainer>
 
       {showControls && (
