@@ -16,7 +16,7 @@ const SimpleConductorDashboard: React.FC = () => {
   const [fromDestination, setFromDestination] = useState('');
   const [toDestination, setToDestination] = useState('');
   const [isTracking, setIsTracking] = useState(false);
-  const { position, startWatching, stopWatching } = useGeolocation({ watch: false });
+  const { position, startWatching, stopWatching, getCurrentPosition } = useGeolocation({ watch: false });
 
   useEffect(() => {
     fetchBuses();
@@ -56,6 +56,7 @@ const SimpleConductorDashboard: React.FC = () => {
     if (error) {
       console.error('Error updating location:', error);
     } else {
+      console.log('Location inserted for bus', selectedBus.id, position);
       setBusLocation({
         bus_id: selectedBus.id,
         latitude: position.latitude,
@@ -91,6 +92,8 @@ const SimpleConductorDashboard: React.FC = () => {
     toast.success('Route set successfully');
     setIsTracking(true);
     startWatching();
+    // Trigger an immediate position fetch to seed the first location
+    getCurrentPosition();
     fetchBuses();
   };
 
