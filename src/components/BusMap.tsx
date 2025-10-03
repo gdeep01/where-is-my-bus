@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import React, { useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
@@ -48,16 +48,16 @@ const BusMap: React.FC<BusMapProps> = ({
   showControls = true,
 }) => {
   const [autoCenter, setAutoCenter] = useState(true);
-  const mapRef = useRef<L.Map | null>(null);
 
-  useEffect(() => {
-    if (mapRef.current && location && autoCenter) {
-      const center: [number, number] = [Number(location.latitude), Number(location.longitude)];
-      mapRef.current.flyTo(center, mapRef.current.getZoom(), {
-        duration: 1,
-      });
-    }
-  }, [location, autoCenter]);
+  const AutoCenter: React.FC<{ center: [number, number]; auto: boolean }> = ({ center, auto }) => {
+    const map = useMap();
+    useEffect(() => {
+      if (auto) {
+        map.flyTo(center, map.getZoom(), { duration: 1 });
+      }
+    }, [center, auto, map]);
+    return null;
+  };
 
   if (!location || !bus) {
     return (
@@ -86,12 +86,12 @@ const BusMap: React.FC<BusMapProps> = ({
         scrollWheelZoom={true}
         style={{ height, width: "100%", borderRadius: "8px" }}
         className="z-0"
-        ref={mapRef}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <AutoCenter center={center} auto={autoCenter} />
         <Marker position={center} icon={createBusIcon(isActive)}>
           <Popup>
             <div className="p-2">
