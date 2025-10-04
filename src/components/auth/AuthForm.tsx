@@ -88,8 +88,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onSuccess }) => {
   const isSignInValid = signInData.email && signInData.password;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-card p-4">
-      <Card className="w-full max-w-md shadow-card">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-card p-3 sm:p-4 md:p-6">
+      <Card className="w-full max-w-md shadow-card mx-auto">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center shadow-glow">
             <Bus className="w-8 h-8 text-primary-foreground" />

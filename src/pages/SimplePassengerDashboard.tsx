@@ -104,16 +104,21 @@ const SimplePassengerDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-screen bg-background p-2 sm:p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Track Your Bus</h1>
-          <Button onClick={() => navigate('/conductor')} variant="outline">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6 px-2">
+          <h1 className="text-2xl sm:text-3xl font-bold">Track Your Bus</h1>
+          <Button 
+            onClick={() => navigate('/conductor')} 
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+          >
             Conductor Dashboard
           </Button>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           <div className="lg:col-span-1 space-y-4">
             <Card className="p-4">
               <h2 className="text-xl font-semibold mb-4">Search Route</h2>
@@ -143,8 +148,8 @@ const SimplePassengerDashboard: React.FC = () => {
             </Card>
 
             <Card className="p-4">
-              <h2 className="text-xl font-semibold mb-4">Available Buses</h2>
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              <h2 className="text-lg sm:text-xl font-semibold mb-4">Available Buses</h2>
+              <div className="space-y-2 max-h-[400px] sm:max-h-[500px] overflow-y-auto">
                 {filteredBuses.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No buses found on this route
@@ -177,27 +182,32 @@ const SimplePassengerDashboard: React.FC = () => {
           <div className="lg:col-span-2">
             {selectedBus ? (
               busLocation ? (
-                <BusMap bus={selectedBus} location={busLocation} height="calc(100vh - 200px)" />
+                <BusMap 
+                  bus={selectedBus} 
+                  location={busLocation} 
+                  height="calc(100vh - 120px)"
+                  className="min-h-[400px]"
+                />
               ) : (
-                <Card className="p-8 h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-lg text-muted-foreground mb-2">
+                <Card className="p-4 sm:p-8 h-full min-h-[400px] flex items-center justify-center">
+                  <div className="text-center px-4">
+                    <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-base sm:text-lg text-muted-foreground mb-2">
                       Waiting for location data for Bus {selectedBus.bus_number}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       The conductor needs to start tracking this bus first
                     </p>
                   </div>
                 </Card>
               )
             ) : (
-              <Card className="p-8 h-full flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-lg text-muted-foreground mb-2">
+              <Card className="p-4 sm:p-8 h-full min-h-[400px] flex items-center justify-center">
+                <div className="text-center px-4">
+                  <p className="text-base sm:text-lg text-muted-foreground mb-2">
                     Select a bus to track its location
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Use the search filters to find buses on your route
                   </p>
                 </div>

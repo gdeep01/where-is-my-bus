@@ -145,10 +145,11 @@ const BusMap: React.FC<BusMapProps> = ({
       />
 
       {showControls && (
-        <div className="absolute top-4 right-4 z-[1000] space-y-2">
+        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-[1000] space-y-2">
           <Button
             variant={autoCenterRef.current ? "default" : "outline"}
             size="sm"
+            className="text-xs sm:text-sm"
             onClick={() => {
               autoCenterRef.current = !autoCenterRef.current;
               // Force re-render by triggering a state update in parent
@@ -161,11 +162,12 @@ const BusMap: React.FC<BusMapProps> = ({
               }
             }}
           >
-            Auto Center: {autoCenterRef.current ? "ON" : "OFF"}
+            <span className="hidden sm:inline">Auto Center: {autoCenterRef.current ? "ON" : "OFF"}</span>
+            <span className="sm:hidden">{autoCenterRef.current ? "ON" : "OFF"}</span>
           </Button>
           <Card className="p-2 text-xs">
-            <p>Last Update: {lastUpdate}</p>
-            <p>Speed: {speed}</p>
+            <p className="whitespace-nowrap">Last: {lastUpdate}</p>
+            <p className="whitespace-nowrap">Speed: {speed}</p>
           </Card>
         </div>
       )}

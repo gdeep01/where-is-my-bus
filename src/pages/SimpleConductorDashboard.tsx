@@ -121,11 +121,11 @@ const SimpleConductorDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-screen bg-background p-2 sm:p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Conductor Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 px-2">Conductor Dashboard</h1>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           <div className="lg:col-span-1 space-y-4">
             <Card className="p-4">
               <h2 className="text-xl font-semibold mb-4">Select Bus</h2>
@@ -198,10 +198,15 @@ const SimpleConductorDashboard: React.FC = () => {
 
           <div className="lg:col-span-2">
             {selectedBus && busLocation ? (
-              <BusMap bus={selectedBus} location={busLocation} height="calc(100vh - 200px)" />
+              <BusMap 
+                bus={selectedBus} 
+                location={busLocation} 
+                height="calc(100vh - 120px)" 
+                className="min-h-[400px]"
+              />
             ) : (
-              <Card className="p-8 h-full flex items-center justify-center">
-                <p className="text-muted-foreground">
+              <Card className="p-4 sm:p-8 h-full min-h-[400px] flex items-center justify-center">
+                <p className="text-muted-foreground text-center text-sm sm:text-base">
                   Select a bus and start tracking to see the map
                 </p>
               </Card>
