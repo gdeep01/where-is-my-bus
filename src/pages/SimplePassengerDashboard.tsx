@@ -70,11 +70,32 @@ const SimplePassengerDashboard: React.FC = () => {
     }
 
     const filtered = buses.filter((bus) => {
-      const matchFrom = !fromSearch || 
-        bus.from_destination?.toLowerCase().includes(fromSearch.toLowerCase());
-      const matchTo = !toSearch || 
-        bus.to_destination?.toLowerCase().includes(toSearch.toLowerCase());
-      return matchFrom && matchTo;
+      // Build complete route: from -> stops -> to
+      const completeRoute = [
+        bus.from_destination || '',
+        ...(bus.stops || []),
+        bus.to_destination || ''
+      ].map(stop => stop.toLowerCase().trim());
+
+      const searchFrom = fromSearch.toLowerCase().trim();
+      const searchTo = toSearch.toLowerCase().trim();
+
+      // If only searching by "from"
+      if (searchFrom && !searchTo) {
+        return completeRoute.some(stop => stop.includes(searchFrom));
+      }
+
+      // If only searching by "to"
+      if (!searchFrom && searchTo) {
+        return completeRoute.some(stop => stop.includes(searchTo));
+      }
+
+      // If searching by both, check if they appear in order
+      const fromIndex = completeRoute.findIndex(stop => stop.includes(searchFrom));
+      const toIndex = completeRoute.findIndex(stop => stop.includes(searchTo));
+
+      // Both must exist and "from" must come before "to"
+      return fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex;
     });
 
     setFilteredBuses(filtered);
@@ -169,9 +190,15 @@ const SimplePassengerDashboard: React.FC = () => {
                           {bus.status}
                         </StatusBadge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {bus.from_destination} → {bus.to_destination}
-                      </p>
+                      <div className="text-sm text-muted-foreground">
+                        <p className="font-medium">{bus.from_destination}</p>
+                        {bus.stops && bus.stops.length > 0 && (
+                          <p className="text-xs pl-3 py-1">
+                            via {bus.stops.join(' → ')}
+                          </p>
+                        )}
+                        <p className="font-medium">{bus.to_destination}</p>
+                      </div>
                     </Card>
                   ))
                 )}

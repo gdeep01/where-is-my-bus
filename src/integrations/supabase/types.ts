@@ -78,6 +78,7 @@ export type Database = {
           id: string
           route_name: string
           status: Database["public"]["Enums"]["bus_status"]
+          stops: string[] | null
           to_destination: string | null
           updated_at: string | null
         }
@@ -90,6 +91,7 @@ export type Database = {
           id?: string
           route_name: string
           status?: Database["public"]["Enums"]["bus_status"]
+          stops?: string[] | null
           to_destination?: string | null
           updated_at?: string | null
         }
@@ -102,6 +104,7 @@ export type Database = {
           id?: string
           route_name?: string
           status?: Database["public"]["Enums"]["bus_status"]
+          stops?: string[] | null
           to_destination?: string | null
           updated_at?: string | null
         }
