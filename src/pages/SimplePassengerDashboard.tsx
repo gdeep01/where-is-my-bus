@@ -85,17 +85,17 @@ const SimplePassengerDashboard: React.FC = () => {
 
       // If only searching by "from"
       if (searchFrom && !searchTo) {
-        return completeRoute.some(stop => stop.includes(searchFrom));
+        return completeRoute.some(stop => stop === searchFrom);
       }
 
       // If only searching by "to"
       if (!searchFrom && searchTo) {
-        return completeRoute.some(stop => stop.includes(searchTo));
+        return completeRoute.some(stop => stop === searchTo);
       }
 
       // If searching by both, check if they appear in order
-      const fromIndex = completeRoute.findIndex(stop => stop.includes(searchFrom));
-      const toIndex = completeRoute.findIndex(stop => stop.includes(searchTo));
+      const fromIndex = completeRoute.findIndex(stop => stop === searchFrom);
+      const toIndex = completeRoute.findIndex(stop => stop === searchTo);
 
       // Both must exist and "from" must come before "to"
       return fromIndex !== -1 && toIndex !== -1 && fromIndex < toIndex;
