@@ -59,17 +59,20 @@ const SimplePassengerDashboard: React.FC = () => {
     
     if (!error && data) {
       setBuses(data);
-      setFilteredBuses(data);
+      // Don't auto-populate filtered buses - only show after search
+      if (fromSearch || toSearch) {
+        handleSearchWithData(data);
+      }
     }
   };
 
-  const handleSearch = () => {
+  const handleSearchWithData = (busData: Bus[]) => {
     if (!fromSearch && !toSearch) {
-      setFilteredBuses(buses);
+      setFilteredBuses([]);
       return;
     }
 
-    const filtered = buses.filter((bus) => {
+    const filtered = busData.filter((bus) => {
       // Build complete route: from -> stops -> to
       const completeRoute = [
         bus.from_destination || '',
@@ -99,6 +102,10 @@ const SimplePassengerDashboard: React.FC = () => {
     });
 
     setFilteredBuses(filtered);
+  };
+
+  const handleSearch = () => {
+    handleSearchWithData(buses);
   };
 
   const handleBusSelect = async (bus: Bus) => {
@@ -171,9 +178,13 @@ const SimplePassengerDashboard: React.FC = () => {
             <Card className="p-4">
               <h2 className="text-lg sm:text-xl font-semibold mb-4">Available Buses</h2>
               <div className="space-y-2 max-h-[400px] sm:max-h-[500px] overflow-y-auto">
-                {filteredBuses.length === 0 ? (
+                {!fromSearch && !toSearch ? (
                   <p className="text-sm text-muted-foreground">
-                    No buses found on this route
+                    Enter a route to search for available buses
+                  </p>
+                ) : filteredBuses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No active buses found on this route
                   </p>
                 ) : (
                   filteredBuses.map((bus) => (
