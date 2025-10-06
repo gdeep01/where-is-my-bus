@@ -7,7 +7,7 @@ This project aims to help daily passengers easily track bus locations, timings, 
  
 ## 🌟 What It Does
 
-* Shows **available buses** only when the selected route exists. 
+* Shows **available buses** only when the selected route exists.  
 * Lets passengers **view live bus location** on the map.
 * Uses **Supabase** for real-time data updates and secure backend.
 * Built with **React / React Native** and **Leaflet / Mapbox** for smooth performance.
