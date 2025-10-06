@@ -54,4 +54,3 @@ To make **affordable, open-source bus tracking** accessible to every small town 
 
 ---
 
-Would you like me to make it sound a bit **more startup-investor appealing** (like you’re pitching this on GitHub for funding)?
