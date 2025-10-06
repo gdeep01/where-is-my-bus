@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import BusMap from '@/components/BusMap';
+import { Home, Users, Clock } from 'lucide-react';
 import type { Bus, BusLocation } from '@/lib/supabase';
 
 const SimpleConductorDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [buses, setBuses] = useState<Bus[]>([]);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [busLocation, setBusLocation] = useState<BusLocation | null>(null);
@@ -123,22 +127,54 @@ const SimpleConductorDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6">Conductor Dashboard</h1>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/')}
+              className="shrink-0"
+            >
+              <Home className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Conductor Dashboard</h1>
+          </div>
+          <Button 
+            onClick={() => navigate('/passenger')} 
+            variant="outline"
+            className="hidden sm:block"
+          >
+            Passenger View
+          </Button>
+        </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <div className="lg:col-span-1 space-y-4">
             <Card className="p-4 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-semibold mb-4">Select Bus</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg sm:text-xl font-semibold">Select Bus</h2>
+                {isTracking && (
+                  <Badge variant="default" className="gap-1">
+                    <Clock className="h-3 w-3" />
+                    Active
+                  </Badge>
+                )}
+              </div>
               <div className="space-y-2">
                 {buses.map((bus) => (
-                  <Button
-                    key={bus.id}
-                    variant={selectedBus?.id === bus.id ? 'default' : 'outline'}
-                    className="w-full justify-start"
-                    onClick={() => setSelectedBus(bus)}
-                  >
-                    Bus {bus.bus_number}
-                  </Button>
+                  <div key={bus.id}>
+                    <Button
+                      variant={selectedBus?.id === bus.id ? 'default' : 'outline'}
+                      className="w-full justify-between"
+                      onClick={() => setSelectedBus(bus)}
+                    >
+                      <span>Bus {bus.bus_number}</span>
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        <Users className="h-3 w-3 mr-1" />
+                        {bus.capacity || 50}
+                      </Badge>
+                    </Button>
+                  </div>
                 ))}
               </div>
             </Card>
