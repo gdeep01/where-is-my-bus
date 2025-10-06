@@ -12,7 +12,7 @@ const Index: React.FC = () => {
       <div className="w-full max-w-4xl space-y-8">
         <div className="text-center space-y-3">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground">
-            Where My Bus Go
+            Where Is My Bus
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
             Real-time bus tracking made simple
