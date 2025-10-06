@@ -48,7 +48,7 @@ const Index: React.FC = () => {
           >
             <CardContent className="p-8 sm:p-10 flex flex-col items-center text-center space-y-4">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-secondary/10 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
-                <UserCheck className="w-10 h-10 sm:w-12 sm:h-12 text-secondary-foreground" />
+                <UserCheck className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
               </div>
               <div className="space-y-2">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
