@@ -1,73 +1,57 @@
-# Welcome to your Lovable project
+# 🚌 Where Is My Bus
 
-## Project info
+A simple yet powerful **real-time bus tracking app** built for **rural and small-town routes** in India.
+This project aims to help daily passengers easily track bus locations, timings, and route availability — starting with **Yadur ↔ Thirthahalli** KSRTC route.
 
-**URL**: https://lovable.dev/projects/15c5b23b-4135-4337-98e7-b30d46c9d5bd
+---
 
-## How can I edit this code?
+## 🌟 What It Does
 
-There are several ways of editing your application.
+* Shows **available buses** only when the selected route exists.
+* Lets passengers **view live bus location** on the map.
+* Uses **Supabase** for real-time data updates and secure backend.
+* Built with **React / React Native** and **Leaflet / Mapbox** for smooth performance.
+* Future-ready for integration with **KSRTC APIs** and **private bus operators**.
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/15c5b23b-4135-4337-98e7-b30d46c9d5bd) and start prompting.
+## ⚙️ Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+* **Frontend:** React / React Native
+* **Backend:** Supabase (PostgreSQL + Auth + Realtime)
+* **Map:** Leaflet + OpenStreetMap
+* **Hosting:** Vercel (Web) / Expo (Mobile App)
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🧠 How It Works
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Conductors or bus operators update the live location.
+2. Supabase syncs the data securely to all connected passengers.
+3. Passengers can view only valid routes and active buses.
+4. Smart filtering prevents fake or missing buses from showing.
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🔒 Security
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+All tables use **Row Level Security (RLS)** in Supabase:
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```sql
+ALTER TABLE buses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bus_locations ENABLE ROW LEVEL SECURITY;
 ```
 
-**Edit a file directly in GitHub**
+This ensures only verified users and services can modify or view real-time bus data.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 🚀 Vision
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+To make **affordable, open-source bus tracking** accessible to every small town —
+**without needing government contracts or high-cost GPS systems.**
 
-## What technologies are used for this project?
+---
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/15c5b23b-4135-4337-98e7-b30d46c9d5bd) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Would you like me to make it sound a bit **more startup-investor appealing** (like you’re pitching this on GitHub for funding)?
