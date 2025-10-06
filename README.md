@@ -1,7 +1,7 @@
 # 🚌 Where Is My Bus
  
 A simple yet powerful **real-time bus tracking app** built for **rural and small-town routes** in India.
-This project aims to help daily passengers easily track bus locations, timings, and route availability — starting with **Yadur ↔ Thirthahalli** KSRTC route.
+This project aims to help daily passengers easily track bus locations, timings, and route availability.
 
 ---
 
