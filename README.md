@@ -4,7 +4,7 @@ A simple yet powerful **real-time bus tracking app** built for **rural and small
 This project aims to help daily passengers easily track bus locations, timings, and route availability.
 
 ---
-
+ 
 ## 🌟 What It Does
 
 * Shows **available buses** only when the selected route exists.
