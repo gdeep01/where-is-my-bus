@@ -1,0 +1,18 @@
+.status-live {
+  color: green;
+  font-weight: 600;
+}
+
+.status-stale {
+  color: orange;
+  font-weight: 600;
+}
+
+.status-offline {
+  color: red;
+  font-weight: 600;
+}
+
+.popup {
+  font-size: 14px;
+}
