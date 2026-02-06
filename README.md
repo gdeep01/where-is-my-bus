@@ -14,44 +14,6 @@ javascript// Core Dependencies
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Bus, Navigation, UserCircle, Users, Play, Square, X } from 'lucide-react';
 
-// External CDN Resources
-// Leaflet CSS: https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
-// Leaflet JS: https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
-// OpenStreetMap Tiles: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
-
-🏗 Architecture
-System Architecture
-┌─────────────────────────────────────────────────────────────┐
-│                    Where is My Bus?Client                       │
-│                                                              │
-│  ┌────────────┐  ┌────────────┐  ┌─────────────────────┐   │
-│  │  Landing   │  │ Conductor  │  │     Passenger       │   │
-│  │   Page     │  │    Page    │  │       Page          │   │
-│  └────────────┘  └────────────┘  └─────────────────────┘   │
-│         │               │                    │               │
-│         └───────────────┴────────────────────┘               │
-│                         │                                    │
-│                         ▼                                    │
-│              ┌──────────────────────┐                        │
-│              │  Global Bus Database │                        │
-│              │  - In-Memory Store   │                        │
-│              │  - Pub-Sub System    │                        │
-│              │  - localStorage Sync │                        │
-│              └──────────────────────┘                        │
-│                         │                                    │
-│         ┌───────────────┼───────────────┐                   │
-│         ▼               ▼               ▼                    │
-│   ┌─────────┐    ┌──────────┐   ┌────────────┐             │
-│   │ Browser │    │ Leaflet  │   │ Geolocation│             │
-│   │ Storage │    │   Map    │   │     API    │             │
-│   └─────────┘    └──────────┘   └────────────┘             │
-│                        │                                     │
-│                        ▼                                     │
-│              ┌──────────────────┐                           │
-│              │  OpenStreetMap   │                           │
-│              │   Tile Server    │                           │
-│              └──────────────────┘                           │
-└─────────────────────────────────────────────────────────────┘
 
 ## Getting Started
 Prerequisites
