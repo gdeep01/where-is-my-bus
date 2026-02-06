@@ -460,12 +460,6 @@ React Team - Framework
 Vite Team - Build tool
 
 
-📧 Contact
-Project Maintainer: Your Name
-
-Email: your.email@example.com
-GitHub: @yourusername
-LinkedIn: Your Profile
 
 Project Link: https://github.com/gdeepg01/where-is-my-bus.git
 
