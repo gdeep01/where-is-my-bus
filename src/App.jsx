@@ -193,7 +193,11 @@ function LocationPicker({ label, value, onChange }) {
         <input
           value={query}
           onChange={e => { setQuery(e.target.value); setShow(true); }}
-          onFocus={() => query.length >= 2 && setShow(true)}
+          onFocus={e => {
+            if (query.length >= 2) setShow(true);
+            e.target.style.borderColor = '#667eea';
+            e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0,0,0,0.1)';
+          }}
           placeholder="Search or type location"
           style={{ 
             width: '100%', 
@@ -206,10 +210,6 @@ function LocationPicker({ label, value, onChange }) {
             outline: 'none',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}
-          onFocus={e => {
-            e.target.style.borderColor = '#667eea';
-            e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0,0,0,0.1)';
           }}
           onBlur={e => {
             e.target.style.borderColor = '#334155';
@@ -348,106 +348,108 @@ function LocationPicker({ label, value, onChange }) {
 // =============================================================================
 function Landing({ onSelect }) {
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       padding: '20px',
       position: 'relative',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      background: '#000'
     }}>
-      {/* Animated background circles */}
+      {/* ── BACKGROUND LAYER — fully isolated, lines/video never bleed over UI ── */}
       <div style={{
-        position: 'absolute',
-        width: '500px',
-        height: '500px',
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.05)',
-        top: '-200px',
-        right: '-200px',
-        animation: 'float 20s ease-in-out infinite'
-      }} />
-      <div style={{
-        position: 'absolute',
-        width: '400px',
-        height: '400px',
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.05)',
-        bottom: '-150px',
-        left: '-150px',
-        animation: 'float 15s ease-in-out infinite reverse'
-      }} />
-
-      <div style={{ textAlign: 'center', maxWidth: '900px', width: '100%', position: 'relative', zIndex: 1 }}>
-        <div style={{ 
-          width: '130px', 
-          height: '130px', 
-          background: 'white', 
-          borderRadius: '50%', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          margin: '0 auto 30px', 
-          boxShadow: '0 25px 70px rgba(0,0,0,0.3)',
-          animation: 'bounce 2s ease-in-out infinite'
+        position: 'absolute', inset: 0,
+        zIndex: 0, overflow: 'hidden', isolation: 'isolate',
+        background: '#000'
+      }}>
+        {/* Your video */}
+        <video autoPlay muted loop playsInline style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          objectFit: 'cover',
+          filter: 'brightness(0.5) saturate(1.2)'
         }}>
-          <Bus size={65} color="#667eea" strokeWidth={2.5} />
+          <source src="/bg.mp4" type="video/mp4" />
+        </video>
+
+        {/* Colour-tint orbs on top of video */}
+        <div className="city-orb orb1" />
+        <div className="city-orb orb2" />
+        <div className="city-orb orb3" />
+
+        {/* Cinematic vignette */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.65) 100%)',
+          pointerEvents: 'none'
+        }} />
+        {/* Bottom gradient so cards stay readable */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.8) 100%)',
+          pointerEvents: 'none'
+        }} />
+      </div>
+
+      {/* ── CONTENT — always on top ── */}
+      <div style={{ textAlign: 'center', maxWidth: '900px', width: '100%', position: 'relative', zIndex: 2 }}>
+        <div style={{
+          width: '130px', height: '130px',
+          background: 'white', borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 30px',
+          animation: 'bounce 2s ease-in-out infinite, shimmer 3s ease-in-out infinite'
+        }}>
+          <Bus size={65} color="#38bdf8" strokeWidth={2.5} />
         </div>
-        
-        <h1 style={{ 
-          fontSize: '64px', 
-          fontWeight: '900', 
-          color: 'white', 
+
+        <h1 style={{
+          fontSize: '64px', fontWeight: '900', color: 'white',
           margin: '0 0 15px',
-          textShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          textShadow: '0 4px 20px rgba(0,0,0,0.5)',
           letterSpacing: '-1px',
           animation: 'fadeInUp 0.6s ease-out'
         }}>
           Where is My Bus?
         </h1>
-        
-        <p style={{ 
-          fontSize: '22px', 
-          color: 'rgba(255,255,255,0.95)', 
-          margin: '0 0 60px',
-          fontWeight: '400',
+
+        <p style={{
+          fontSize: '22px', color: 'rgba(255,255,255,0.95)',
+          margin: '0 0 60px', fontWeight: '400',
           animation: 'fadeInUp 0.6s ease-out 0.1s backwards'
         }}>
           Real-time GPS bus tracking
         </p>
 
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap: '30px',
           animation: 'fadeInUp 0.6s ease-out 0.2s backwards'
         }}>
           {[
-            { icon: UserCircle, title: 'Conductor', desc: 'Start trip & broadcast GPS', color: '#667eea', key: 'conductor' },
-            { icon: Users, title: 'Passenger', desc: 'Track buses in real-time', color: '#48bb78', key: 'passenger' }
+            { icon: UserCircle, title: 'Conductor', desc: 'Start trip & broadcast GPS', color: '#38bdf8', key: 'conductor' },
+            { icon: Users,      title: 'Passenger', desc: 'Track buses in real-time',   color: '#48bb78', key: 'passenger' }
           ].map((btn, i) => (
-            <button 
-              key={i} 
-              onClick={() => onSelect(btn.key)} 
-              style={{ 
-                background: 'white', 
-                border: 'none', 
-                borderRadius: '24px', 
-                padding: '50px 35px', 
-                cursor: 'pointer', 
+            <button
+              key={i}
+              onClick={() => onSelect(btn.key)}
+              style={{
+                background: 'white', border: 'none', borderRadius: '24px',
+                padding: '50px 35px', cursor: 'pointer',
                 boxShadow: '0 15px 50px rgba(0,0,0,0.25)',
                 transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 transform: 'translateY(0)'
-              }} 
-              onMouseOver={e => { 
-                e.currentTarget.style.transform = 'translateY(-12px) scale(1.02)'; 
-                e.currentTarget.style.boxShadow = '0 25px 70px rgba(0,0,0,0.35)'; 
-              }} 
-              onMouseOut={e => { 
-                e.currentTarget.style.transform = 'translateY(0) scale(1)'; 
-                e.currentTarget.style.boxShadow = '0 15px 50px rgba(0,0,0,0.25)'; 
+              }}
+              onMouseOver={e => {
+                e.currentTarget.style.transform = 'translateY(-12px) scale(1.02)';
+                e.currentTarget.style.boxShadow = '0 25px 70px rgba(0,0,0,0.35)';
+              }}
+              onMouseOut={e => {
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 15px 50px rgba(0,0,0,0.25)';
               }}
             >
               <btn.icon size={70} color={btn.color} strokeWidth={2} style={{ margin: '0 auto 24px' }} />
@@ -463,25 +465,56 @@ function Landing({ onSelect }) {
       </div>
 
       <style>{`
+        .city-orb {
+          position: absolute; border-radius: 50%;
+          filter: blur(90px); pointer-events: none;
+        }
+        .orb1 {
+          width: 700px; height: 700px;
+          background: radial-gradient(circle, rgba(251,146,60,0.16) 0%, transparent 70%);
+          top: -180px; left: -180px;
+          animation: orbDrift1 13s ease-in-out infinite alternate;
+        }
+        .orb2 {
+          width: 550px; height: 550px;
+          background: radial-gradient(circle, rgba(56,189,248,0.13) 0%, transparent 70%);
+          bottom: -120px; right: -120px;
+          animation: orbDrift2 10s ease-in-out infinite alternate;
+        }
+        .orb3 {
+          width: 450px; height: 450px;
+          background: radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%);
+          top: 35%; left: 45%;
+          transform: translate(-50%, -50%);
+          animation: orbDrift1 17s ease-in-out infinite alternate-reverse;
+        }
+        @keyframes orbDrift1 {
+          0%   { transform: translate(0, 0);       opacity: 0.6; }
+          100% { transform: translate(50px, 35px); opacity: 1;   }
+        }
+        @keyframes orbDrift2 {
+          0%   { transform: translate(0, 0);         opacity: 0.5; }
+          100% { transform: translate(-40px, -30px); opacity: 0.9; }
+        }
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+          50%       { transform: translateY(-10px); }
         }
-        @keyframes float {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          50% { transform: translate(30px, 30px) rotate(180deg); }
+        @keyframes shimmer {
+          0%, 100% { box-shadow: 0 25px 70px rgba(0,0,0,0.5), 0 0 40px rgba(56,189,248,0.2); }
+          50%       { box-shadow: 0 25px 70px rgba(0,0,0,0.5), 0 0 70px rgba(56,189,248,0.45); }
         }
         @keyframes slideDown {
           from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes fadeIn {
           from { opacity: 0; }
-          to { opacity: 1; }
+          to   { opacity: 1; }
         }
       `}</style>
     </div>
@@ -584,7 +617,7 @@ function Conductor({ onBack }) {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+      background: 'linear-gradient(180deg, #0a0a0f 0%, #0d1117 100%)', 
       padding: '20px' 
     }}>
       <div style={{ maxWidth: '650px', margin: '0 auto' }}>
@@ -1080,6 +1113,8 @@ function RealMap({ buses, selected }) {
         .leaflet-popup-content { margin: 0; width: auto !important; }
         .leaflet-popup-tip { display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
     </div>
   );
@@ -1092,11 +1127,16 @@ function Passenger({ onBack }) {
   const [buses, setBuses] = useState([]);
   const [selected, setSelected] = useState(null);
 
+  const hasAutoSelected = useRef(false);
+
   useEffect(() => {
     const update = all => {
       setBuses(all);
       const active = all.filter(b => b.active);
-      if (active.length > 0 && !selected) setSelected(active[0]);
+      if (active.length > 0 && !hasAutoSelected.current) {
+        setSelected(active[0]);
+        hasAutoSelected.current = true;
+      }
     };
     return DB.subscribe(update);
   }, []);
