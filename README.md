@@ -1,163 +1,129 @@
-## Tech Stack
-Frontend Framework
-TechnologyVersionPurposeReact18.xUI component libraryReact Hooks-State management (useState, useEffect, useRef)Lucide ReactLatestIcon library for UI elements
-Mapping & Geolocation
-TechnologyVersionPurposeLeaflet.js1.9.4Interactive map libraryOpenStreetMap-Map tile provider (free, open-source)Browser Geolocation API-GPS position access
-Data & Storage
-TechnologyPurposelocalStorageClient-side persistencePub-Sub PatternReal-time state synchronizationIn-Memory DatabaseFast access to bus data
-Build Tools
-TechnologyPurposeViteFast development server & bundlerESLintCode quality & lintingPrettierCode formatting
-Styling
-ApproachDetailsInline StylesComponent-scoped stylingCSS AnimationsKeyframe animations for transitionsCubic BezierSmooth easing functions
-APIs & Libraries
-javascript// Core Dependencies
-import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Bus, Navigation, UserCircle, Users, Play, Square, X } from 'lucide-react';
+# Where Is My Bus?
 
+Real-time bus tracking built for routes where GPS hardware costs Rs. 15,000–25,000 per bus makes dedicated tracking unaffordable. This runs entirely on the conductor's phone browser — no hardware, no backend, no cost.
 
-## Getting Started
-Prerequisites
+**Live:** [where-is-my-bus-beryl.vercel.app/](https://where-is-my-bus-beryl.vercel.app)
 
-Node.js (v16 or higher)
-npm or yarn package manager
-Modern web browser with Geolocation API support
-Internet connection (for map tiles)
+---
 
-Installation
+## What it does
 
-Clone the repository
+**Conductor** opens the app, fills in the bus number, route, and departure time, and hits Start. The browser's Geolocation API starts polling their GPS every 5 seconds and writes coordinates to Firebase Realtime Database.
 
-bash   git clone https://github.com/gdeepg01/where-is-my-bus.git
-   cd Where is My Bus?
+**Passenger** opens the same URL on any device, selects their bus from the sidebar, and watches it move on an OpenStreetMap/Leaflet map. Updates arrive in under 5 seconds via Firebase's `onValue` listener — no polling, no page refresh.
 
-Install dependencies
+When the conductor ends the trip, the record is deleted from Firebase immediately. If the tab crashes or the browser closes, Firebase's `onDisconnect` handler cleans it up automatically.
 
-bash   npm install
+---
 
-Start development server
+## Why it's built this way
 
-bash   npm run dev
+The goal was zero infrastructure cost. No server means no hosting bill, no database to manage, no API to maintain. Firebase Realtime Database on the Spark (free) plan handles the sync. Vercel handles the static hosting. The total monthly cost is ₹0.
 
-Open in browser
-http://localhost:5173
-npm run build
+The app works as a progressive web app — conductors can add it to their home screen on Android and it behaves like a native app.
 
-# Preview production build
-npm run preview
-Environment Setup
-No environment variables required! Where is My Bus? works entirely client-side.
+---
 
-📖 Usage Guide
-For Conductors
+## Stack
 
-Start a Trip
+- **React 18** — UI
+- **Firebase Realtime Database** — live location sync
+- **Leaflet + OpenStreetMap** — maps (no API key needed)
+- **Vite** — build tool
+- **Vercel** — hosting
 
-Select "Conductor" on landing page
-Fill in bus number (e.g., KA-20-1234)
-Enter bus name (e.g., Express)
-Choose start location (search or use GPS)
-Choose destination
-Set departure time
-Click "Start GPS Tracking"
+No backend. No native app. No GPS hardware.
 
-During Trip
+---
 
-GPS broadcasts every 5 seconds automatically
-View current coordinates on screen
-Speed is calculated and displayed
-Trip remains active until stopped
+## Running locally
+```bash
+git clone https://github.com/gdeepg01/where-is-my-bus.git
+cd where-is-my-bus
+npm install
+npm start
+```
 
+Opens at `http://localhost:3000`.
 
-End Trip
+The app runs in **demo mode** by default — everything works on a single device using localStorage. To enable cross-device sync, add your Firebase config (see below).
 
-Click "End Trip" button
-GPS tracking stops
-Bus becomes inactive for passengers
+---
 
-For Passengers
+## Firebase setup
 
-View Live Buses
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable **Realtime Database** — choose Asia Southeast (Singapore) region
+3. Copy your config from Project Settings → Your Apps → SDK setup
 
-Select "Passenger" on landing page
-See all active buses in sidebar
-Live counter shows total active buses
+```bash
+cp src/firebase.example.js src/firebase.js
+# Then fill in your config values
+```
+4. Paste it into `src/firebase.js` replacing the placeholder values
+5. Set these database rules:
+```json
+{
+  "rules": {
+    "buses": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
+```
 
-Track a Bus
+---
 
-Click any bus card in sidebar
-Map zooms to bus location
-Popup shows bus details
-Watch bus move in real-time
+## How location sync works
+```
+Conductor browser
+  → navigator.geolocation (every 5s)
+  → Firebase RTDB set (buses/{id})
+  → onDisconnect.remove() registered on each write
 
+Passenger browser  
+  → Firebase onValue listener
+  → React state update
+  → Leaflet marker repositioned
+```
 
-Explore Map
+Latency in practice: 2–4 seconds on a normal mobile connection.
 
-Zoom in/out with mouse wheel
-Drag to pan around
-Click markers for info
-View street names and landmarks
+**Cleanup chain:**
+- Conductor clicks End Trip → `remove()` called immediately
+- Conductor closes tab → `onDisconnect` fires server-side within ~60s
+- Record older than 24 hours → filtered out client-side as a safety net
 
-Future Roadmap
-Phase 1 (Current)
+---
 
- Real-time GPS tracking
- Interactive map with OpenStreetMap
- Conductor and Passenger interfaces
- Auto-cleanup system
+## Limitations
 
-Phase 2 (Next)
+- Requires location permission on the conductor's device
+- GPS accuracy depends on the device — typically ±3–10 meters
+- Speed display is smoothed (ignores movements under 10 meters) to filter GPS drift
+- Firebase free tier allows 100 simultaneous connections — sufficient for a single route operator, needs upgrading for a fleet
 
- Backend server with WebSocket
- User authentication
- Trip history and analytics
- Estimated arrival times (ETA)
- Push notifications
- Offline mode with service workers
+---
 
-Phase 3 (Future)
+## What's next
 
- Multi-route support
- Fleet management dashboard
- Passenger feedback system
- Integration with payment systems
- Mobile native apps (React Native)
- Voice announcements
+- `onDisconnect` + server-side TTL via Cloud Functions for cleaner cleanup
+- Conductor authentication so routes can't be spoofed
+- Trip history and route replay
+- PWA offline support with service workers
+- Multi-language support (Kannada, Hindi)
 
+---
 
-🤝 Contributing
-We welcome contributions! Please follow these steps:
+## Project context
 
-Fork the repository
-Create a feature branch (git checkout -b feature/amazing-feature)
-Commit your changes (git commit -m 'Add amazing feature')
-Push to the branch (git push origin feature/amazing-feature)
-Open a Pull Request
+Built this after noticing that most small bus operators in Karnataka track their fleet through WhatsApp messages. The hardware GPS trackers sold to operators cost Rs. 15,000–25,000 per unit plus a monthly SIM data plan — out of reach for a 3–4 bus operation running on thin margins.
 
-Code Style
+This is an attempt at the same outcome with a smartphone the conductor already carries.
 
-Follow existing code patterns
-Use functional components with hooks
-Add comments for complex logic
-Test on multiple browsers
-Ensure animations are smooth
+---
 
+## License
 
-📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-👏 Acknowledgments
-
-OpenStreetMap Contributors - Map data
-Leaflet.js Team - Mapping library
-Lucide Icons - Beautiful icon set
-React Team - Framework
-Vite Team - Build tool
-
-
-
-Project Link: https://github.com/gdeepg01/where-is-my-bus.git
-
-<div align="center">
-Made with ❤️ for better public transportation
-⭐ Star this repo if you find it helpful!
-</div>
+MIT

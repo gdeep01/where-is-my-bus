@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { fbSetBus, fbRemoveBus, fbSubscribeBuses } from './firebase.js'
 import { MapPin, Bus, Navigation, UserCircle, Users, Play, Square, X } from 'lucide-react';
 
 // =============================================================================
@@ -130,7 +131,20 @@ const Utils = {
     let hash = 0;
     for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
-  }
+  },
+
+  eta(bus) {
+    // Returns a human-readable ETA string, or null if not computable
+    if (!bus.to || !bus.lat || !bus.lng) return null
+    const distKm   = Utils.distance(bus.lat, bus.lng, bus.to.lat, bus.to.lng)
+    const speedKph = bus.speed > 2 ? bus.speed : 30   // assume 30 km/h if nearly stationary
+    const etaMins  = Math.round((distKm / speedKph) * 60)
+    if (etaMins < 1)  return 'Arriving now'
+    if (etaMins < 60) return `~${etaMins} min`
+    const h = Math.floor(etaMins / 60)
+    const m = etaMins % 60
+    return `~${h}h ${m}m`
+  },
 };
 
 // =============================================================================
@@ -343,6 +357,101 @@ function LocationPicker({ label, value, onChange }) {
   );
 }
 
+function ShaderAnimation() {
+  const containerRef = useRef();
+  const sceneRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+
+    const THREE = window.__THREE__;
+    let camera, scene, renderer, uniforms, animId;
+
+    const init = (T) => {
+      camera = new T.Camera();
+      camera.position.z = 1;
+      scene = new T.Scene();
+      const geometry = new T.PlaneGeometry(2, 2);
+      uniforms = {
+        time: { value: 1.0 },
+        resolution: { value: new T.Vector2() },
+      };
+      const material = new T.ShaderMaterial({
+        uniforms,
+        vertexShader: `void main() { gl_Position = vec4(position, 1.0); }`,
+        fragmentShader: `
+          precision highp float;
+          uniform vec2 resolution;
+          uniform float time;
+          void main(void) {
+            vec2 uv = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
+            float t = time * 0.05;
+            float lineWidth = 0.002;
+            vec3 color = vec3(0.0);
+            for(int j = 0; j < 3; j++){
+              for(int i = 0; i < 5; i++){
+                color[j] += lineWidth * float(i*i) / abs(fract(t - 0.01*float(j) + float(i)*0.01)*5.0 - length(uv) + mod(uv.x+uv.y, 0.2));
+              }
+            }
+            gl_FragColor = vec4(color[0], color[1], color[2], 1.0);
+          }
+        `,
+      });
+      scene.add(new T.Mesh(geometry, material));
+      renderer = new T.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      const resize = () => {
+        const w = container.clientWidth, h = container.clientHeight;
+        renderer.setSize(w, h);
+        uniforms.resolution.value.set(renderer.domElement.width, renderer.domElement.height);
+      };
+      resize();
+      window.addEventListener('resize', resize);
+
+      const animate = () => {
+        animId = requestAnimationFrame(animate);
+        uniforms.time.value += 0.05;
+        renderer.render(scene, camera);
+      };
+      animate();
+
+      sceneRef.current = { renderer, geometry, material, animId, resize };
+    };
+
+    // Dynamically load Three.js then init
+    if (window.THREE) {
+      init(window.THREE);
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+      script.onload = () => init(window.THREE);
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      if (sceneRef.current) {
+        cancelAnimationFrame(sceneRef.current.animId);
+        window.removeEventListener('resize', sceneRef.current.resize);
+        if (container.contains(sceneRef.current.renderer.domElement))
+          container.removeChild(sceneRef.current.renderer.domElement);
+        sceneRef.current.renderer.dispose();
+        sceneRef.current.geometry.dispose();
+        sceneRef.current.material.dispose();
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+    />
+  );
+}
+
 // =============================================================================
 // LANDING PAGE - ENHANCED ANIMATIONS
 // =============================================================================
@@ -358,105 +467,104 @@ function Landing({ onSelect }) {
       overflow: 'hidden',
       background: '#000'
     }}>
-      {/* ── BACKGROUND LAYER — fully isolated, lines/video never bleed over UI ── */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        zIndex: 0, overflow: 'hidden', isolation: 'isolate',
-        background: '#000'
-      }}>
-        {/* Your video */}
-        <video autoPlay muted loop playsInline style={{
-          position: 'absolute', inset: 0,
-          width: '100%', height: '100%',
-          objectFit: 'cover',
-          filter: 'brightness(0.5) saturate(1.2)'
-        }}>
-          <source src="/bg.mp4" type="video/mp4" />
-        </video>
-
-        {/* Colour-tint orbs on top of video */}
-        <div className="city-orb orb1" />
-        <div className="city-orb orb2" />
-        <div className="city-orb orb3" />
-
-        {/* Cinematic vignette */}
+      {/* Shader background replaces video */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <ShaderAnimation />
+        {/* Dark overlay so text stays readable */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.65) 100%)',
-          pointerEvents: 'none'
-        }} />
-        {/* Bottom gradient so cards stay readable */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.8) 100%)',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.75) 100%)',
           pointerEvents: 'none'
         }} />
       </div>
 
-      {/* ── CONTENT — always on top ── */}
       <div style={{ textAlign: 'center', maxWidth: '900px', width: '100%', position: 'relative', zIndex: 2 }}>
         <div style={{
-          width: '130px', height: '130px',
-          background: 'white', borderRadius: '50%',
+          width: '110px', height: '110px',
+          background: 'rgba(255,255,255,0.08)',
+          border: '1.5px solid rgba(255,255,255,0.15)',
+          borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 30px',
-          animation: 'bounce 2s ease-in-out infinite, shimmer 3s ease-in-out infinite'
+          margin: '0 auto 28px',
+          backdropFilter: 'blur(12px)',
+          boxShadow: '0 0 40px rgba(56,189,248,0.25)',
+          animation: 'bounce 2s ease-in-out infinite'
         }}>
-          <Bus size={65} color="#38bdf8" strokeWidth={2.5} />
+          <Bus size={52} color="#38bdf8" strokeWidth={2} />
         </div>
 
         <h1 style={{
-          fontSize: '64px', fontWeight: '900', color: 'white',
-          margin: '0 0 15px',
-          textShadow: '0 4px 20px rgba(0,0,0,0.5)',
-          letterSpacing: '-1px',
-          animation: 'fadeInUp 0.6s ease-out'
+          fontSize: 'clamp(36px, 7vw, 68px)',
+          fontWeight: '900',
+          color: 'white',
+          margin: '0 0 12px',
+          letterSpacing: '-2px',
+          textShadow: '0 2px 30px rgba(0,0,0,0.6)',
+          animation: 'fadeInUp 0.5s ease-out'
         }}>
           Where is My Bus?
         </h1>
 
         <p style={{
-          fontSize: '22px', color: 'rgba(255,255,255,0.95)',
-          margin: '0 0 60px', fontWeight: '400',
-          animation: 'fadeInUp 0.6s ease-out 0.1s backwards'
+          fontSize: '18px',
+          color: 'rgba(255,255,255,0.65)',
+          margin: '0 0 56px',
+          letterSpacing: '0.5px',
+          animation: 'fadeInUp 0.5s ease-out 0.1s backwards'
         }}>
           Real-time GPS bus tracking
         </p>
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '30px',
-          animation: 'fadeInUp 0.6s ease-out 0.2s backwards'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '24px',
+          animation: 'fadeInUp 0.5s ease-out 0.2s backwards'
         }}>
           {[
             { icon: UserCircle, title: 'Conductor', desc: 'Start trip & broadcast GPS', color: '#38bdf8', key: 'conductor' },
-            { icon: Users,      title: 'Passenger', desc: 'Track buses in real-time',   color: '#48bb78', key: 'passenger' }
+            { icon: Users, title: 'Passenger', desc: 'Track buses in real-time', color: '#48bb78', key: 'passenger' }
           ].map((btn, i) => (
             <button
               key={i}
               onClick={() => onSelect(btn.key)}
               style={{
-                background: 'white', border: 'none', borderRadius: '24px',
-                padding: '50px 35px', cursor: 'pointer',
-                boxShadow: '0 15px 50px rgba(0,0,0,0.25)',
-                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                transform: 'translateY(0)'
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '24px',
+                padding: '44px 32px',
+                cursor: 'pointer',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)',
+                transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
               onMouseOver={e => {
-                e.currentTarget.style.transform = 'translateY(-12px) scale(1.02)';
-                e.currentTarget.style.boxShadow = '0 25px 70px rgba(0,0,0,0.35)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.09)';
+                e.currentTarget.style.border = `1px solid ${btn.color}60`;
+                e.currentTarget.style.transform = 'translateY(-8px)';
+                e.currentTarget.style.boxShadow = `0 20px 50px rgba(0,0,0,0.4), 0 0 30px ${btn.color}25, inset 0 1px 0 rgba(255,255,255,0.1)`;
               }}
               onMouseOut={e => {
-                e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                e.currentTarget.style.boxShadow = '0 15px 50px rgba(0,0,0,0.25)';
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.border = '1px solid rgba(255,255,255,0.12)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)';
               }}
             >
-              <btn.icon size={70} color={btn.color} strokeWidth={2} style={{ margin: '0 auto 24px' }} />
-              <div style={{ fontSize: '30px', fontWeight: '800', color: '#2d3748', marginBottom: '10px' }}>
+              <div style={{
+                width: '64px', height: '64px',
+                background: `${btn.color}18`,
+                border: `1px solid ${btn.color}40`,
+                borderRadius: '18px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 20px',
+              }}>
+                <btn.icon size={32} color={btn.color} strokeWidth={1.8} />
+              </div>
+              <div style={{ fontSize: '26px', fontWeight: '800', color: 'white', marginBottom: '8px', letterSpacing: '-0.5px' }}>
                 {btn.title}
               </div>
-              <div style={{ fontSize: '16px', color: '#718096', lineHeight: '1.5' }}>
+              <div style={{ fontSize: '15px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5' }}>
                 {btn.desc}
               </div>
             </button>
@@ -465,56 +573,21 @@ function Landing({ onSelect }) {
       </div>
 
       <style>{`
-        .city-orb {
-          position: absolute; border-radius: 50%;
-          filter: blur(90px); pointer-events: none;
-        }
-        .orb1 {
-          width: 700px; height: 700px;
-          background: radial-gradient(circle, rgba(251,146,60,0.16) 0%, transparent 70%);
-          top: -180px; left: -180px;
-          animation: orbDrift1 13s ease-in-out infinite alternate;
-        }
-        .orb2 {
-          width: 550px; height: 550px;
-          background: radial-gradient(circle, rgba(56,189,248,0.13) 0%, transparent 70%);
-          bottom: -120px; right: -120px;
-          animation: orbDrift2 10s ease-in-out infinite alternate;
-        }
-        .orb3 {
-          width: 450px; height: 450px;
-          background: radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%);
-          top: 35%; left: 45%;
-          transform: translate(-50%, -50%);
-          animation: orbDrift1 17s ease-in-out infinite alternate-reverse;
-        }
-        @keyframes orbDrift1 {
-          0%   { transform: translate(0, 0);       opacity: 0.6; }
-          100% { transform: translate(50px, 35px); opacity: 1;   }
-        }
-        @keyframes orbDrift2 {
-          0%   { transform: translate(0, 0);         opacity: 0.5; }
-          100% { transform: translate(-40px, -30px); opacity: 0.9; }
-        }
         @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(30px); }
-          to   { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
-          50%       { transform: translateY(-10px); }
-        }
-        @keyframes shimmer {
-          0%, 100% { box-shadow: 0 25px 70px rgba(0,0,0,0.5), 0 0 40px rgba(56,189,248,0.2); }
-          50%       { box-shadow: 0 25px 70px rgba(0,0,0,0.5), 0 0 70px rgba(56,189,248,0.45); }
+          50% { transform: translateY(-8px); }
         }
         @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-10px); }
-          to   { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         @keyframes fadeIn {
           from { opacity: 0; }
-          to   { opacity: 1; }
+          to { opacity: 1; }
         }
       `}</style>
     </div>
@@ -535,6 +608,7 @@ function Conductor({ onBack }) {
   const [active, setActive] = useState(false);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [gpsDenied, setGpsDenied] = useState(false)
   const [busId, setBusId] = useState(null);
   const intervalRef = useRef();
 
@@ -544,350 +618,466 @@ function Conductor({ onBack }) {
       alert('Please fill all fields');
       return;
     }
+    setGpsDenied(false)
     setLoading(true);
     try {
-      const pos = await Utils.getGPS();
-      const id = Date.now();
-      const route = `${form.from.name} → ${form.to.name}`;
-      DB.add({ 
-        id, 
-        number: form.number, 
-        name: form.name, 
-        route, 
-        color: Utils.color(route), 
-        from: form.from, 
-        to: form.to, 
-        time: form.time, 
-        lat: pos.lat, 
-        lng: pos.lng, 
-        speed: 0, 
-        updated: Date.now(), 
-        status: 'live', 
-        active: true, 
-        history: [{ lat: pos.lat, lng: pos.lng, time: Date.now() }] 
-      });
-      setBusId(id);
-      setLocation(pos);
-      setActive(true);
-      
-      let last = { pos, time: Date.now() };
+      const pos = await Utils.getGPS()
+      const id = `${Date.now()}`           // string key for Firebase path safety
+      const route = `${form.from.name} \u2192 ${form.to.name}`
+
+      const busRecord = {
+        id,
+        number: form.number,
+        name:   form.name,
+        route,
+        color:  Utils.color(route),
+        from:   form.from,
+        to:     form.to,
+        time:   form.time,
+        lat:    pos.lat,
+        lng:    pos.lng,
+        speed:  0,
+        updated: Date.now(),
+        status: 'live',
+        active: true,
+        history: [{ lat: pos.lat, lng: pos.lng, time: Date.now() }],
+      }
+
+      // Write to local DB (keeps demo / same-device passenger working)
+      DB.add(busRecord)
+
+      // Write to Firebase (cross-device sync)
+      const { history: _h, ...busRecordForFirebase } = busRecord
+      await fbSetBus(id, busRecordForFirebase)
+
+      setBusId(id)
+      setLocation(pos)
+      setActive(true)
+
+      let last = { pos, time: Date.now(), speed: 0 }
+
       intervalRef.current = setInterval(async () => {
         try {
-          const newPos = await Utils.getGPS();
-          const dist = Utils.distance(last.pos.lat, last.pos.lng, newPos.lat, newPos.lng);
-          const hours = (Date.now() - last.time) / 3600000;
-          const speed = dist / hours;
-          DB.update(id, { lat: newPos.lat, lng: newPos.lng, speed, updated: Date.now() });
-          setLocation(newPos);
-          last = { pos: newPos, time: Date.now() };
-        } catch (e) {
-          console.error(e);
+          const newPos = await Utils.getGPS()
+          const dist  = Utils.distance(last.pos.lat, last.pos.lng, newPos.lat, newPos.lng)
+          const hours = (Date.now() - last.time) / 3_600_000
+          // Only calculate speed if movement is meaningful (>10 meters)
+          // GPS drift is typically 3-10m, so threshold at 0.01km filters noise
+          const speed = dist > 0.01 ? dist / hours : last.speed ?? 0
+
+          const update = {
+            lat:     newPos.lat,
+            lng:     newPos.lng,
+            speed,
+            updated: Date.now(),
+            status:  'live',
+          }
+
+          // Keep local DB in sync (same-device passenger)
+          DB.update(id, update)
+
+          // Push to Firebase — this is what passengers on other devices receive
+          // Never send history to Firebase — keep it local only
+          const { history: _history, ...busRecordWithoutHistory } = busRecord
+          await fbSetBus(id, { ...busRecordWithoutHistory, ...update })
+
+          setLocation(newPos)
+          last = { pos: newPos, time: Date.now(), speed }
+        } catch (err) {
+          console.error('GPS update error:', err)
         }
-      }, UPDATE_INTERVAL);
+      }, UPDATE_INTERVAL)   // UPDATE_INTERVAL is already defined as 5000 ms
     } catch (e) {
-      alert(e.message);
+      if (e.message === 'Location denied') {
+        setGpsDenied(true)
+      } else {
+        alert(e.message)
+      }
     }
     setLoading(false);
   };
 
   const stop = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (busId) DB.stop(busId);
-    setActive(false);
-    setForm({ number: '', name: '', from: null, to: null, time: new Date().toTimeString().slice(0, 5) });
-    setLocation(null);
-    setBusId(null);
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (busId) {
+      DB.stop(busId)
+      fbRemoveBus(busId)   // deletes the Firebase record immediately
+    }
+    setActive(false)
+    setGpsDenied(false)
+    setForm({ number: '', name: '', from: null, to: null, time: new Date().toTimeString().slice(0, 5) })
+    setLocation(null)
+    setBusId(null)
   };
 
   useEffect(() => () => intervalRef.current && clearInterval(intervalRef.current), []);
 
-  const inputStyle = { 
-    width: '100%', 
-    padding: '14px 16px', 
-    background: '#1e293b', 
-    border: '2px solid #334155', 
-    borderRadius: '12px', 
-    color: '#f1f5f9', 
-    fontSize: '15px', 
+  const inputStyle = {
+    width: '100%',
+    padding: '13px 16px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '12px',
+    color: '#f1f5f9',
+    fontSize: '15px',
     outline: 'none',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+    transition: 'all 0.2s ease',
+    backdropFilter: 'blur(8px)',
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(180deg, #0a0a0f 0%, #0d1117 100%)', 
-      padding: '20px' 
+    <div style={{
+      minHeight: '100vh',
+      background: '#080c14',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      <div style={{ maxWidth: '650px', margin: '0 auto' }}>
-        <button 
-          onClick={onBack} 
-          style={{ 
-            padding: '12px 24px', 
-            background: 'rgba(255,255,255,0.2)', 
-            border: '2px solid rgba(255,255,255,0.3)', 
-            borderRadius: '12px', 
-            color: 'white', 
-            fontSize: '16px', 
-            fontWeight: '600', 
-            cursor: 'pointer', 
-            marginBottom: '20px',
-            backdropFilter: 'blur(10px)',
-            transition: 'all 0.3s ease'
+      {/* Subtle background grid */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0,
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+        backgroundSize: '40px 40px',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Glow orb top-right */}
+      <div style={{
+        position: 'absolute', top: '-120px', right: '-120px',
+        width: '400px', height: '400px',
+        background: 'radial-gradient(circle, rgba(102,126,234,0.12) 0%, transparent 70%)',
+        borderRadius: '50%', pointerEvents: 'none', zIndex: 0,
+      }} />
+
+      {/* Header bar */}
+      <div style={{
+        position: 'relative', zIndex: 2,
+        padding: '20px 28px',
+        display: 'flex', alignItems: 'center', gap: '16px',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(255,255,255,0.02)',
+        backdropFilter: 'blur(12px)',
+      }}>
+        <button
+          onClick={onBack}
+          style={{
+            padding: '9px 18px',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '10px',
+            color: 'rgba(255,255,255,0.8)',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'flex', alignItems: 'center', gap: '6px',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
-            e.currentTarget.style.transform = 'translateX(-4px)';
+            e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.color = 'white';
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
-            e.currentTarget.style.transform = 'translateX(0)';
+            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
           }}
         >
           ← Back
         </button>
-
-        <div style={{ 
-          background: 'white', 
-          borderRadius: '28px', 
-          padding: '45px', 
-          boxShadow: '0 25px 70px rgba(0,0,0,0.3)',
-          animation: 'slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}>
-          <h1 style={{ 
-            fontSize: '34px', 
-            fontWeight: '800', 
-            color: '#2d3748', 
-            margin: '0 0 35px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px' 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '36px', height: '36px',
+            background: 'rgba(56,189,248,0.12)',
+            border: '1px solid rgba(56,189,248,0.3)',
+            borderRadius: '10px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            {active && <span style={{ color: '#48bb78', animation: 'pulse 2s infinite' }}>●</span>}
-            {active ? 'Trip Active' : 'Start Your Trip'}
-          </h1>
+            <Bus size={18} color="#38bdf8" strokeWidth={2} />
+          </div>
+          <span style={{ fontSize: '17px', fontWeight: '700', color: 'white', letterSpacing: '-0.3px' }}>
+            Conductor Dashboard
+          </span>
+        </div>
+        {active && (
+          <div style={{
+            marginLeft: 'auto',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '6px 14px',
+            background: 'rgba(72,187,120,0.1)',
+            border: '1px solid rgba(72,187,120,0.3)',
+            borderRadius: '20px',
+          }}>
+            <div style={{
+              width: '8px', height: '8px', borderRadius: '50%',
+              background: '#48bb78',
+              boxShadow: '0 0 8px #48bb78',
+              animation: 'pulse 2s infinite',
+            }} />
+            <span style={{ fontSize: '13px', fontWeight: '700', color: '#48bb78' }}>LIVE</span>
+          </div>
+        )}
+      </div>
 
-          {!active ? (
-            <form onSubmit={start} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
-                  Bus Number
+      {/* Main content */}
+      <div style={{
+        position: 'relative', zIndex: 2,
+        maxWidth: '680px', margin: '0 auto',
+        padding: '36px 24px',
+      }}>
+
+        {!active ? (
+          /* ── FORM STATE ── */
+          <div>
+            <div style={{ marginBottom: '32px' }}>
+              <h1 style={{
+                fontSize: '32px', fontWeight: '800',
+                color: 'white', margin: '0 0 8px',
+                letterSpacing: '-1px',
+              }}>
+                Start Your Trip
+              </h1>
+              <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                Fill in the details to begin broadcasting your location
+              </p>
+            </div>
+
+            <form onSubmit={start} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+
+              {/* Bus Number + Bus Name side by side */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    Bus Number
+                  </label>
+                  <input
+                    type="text"
+                    value={form.number}
+                    onChange={e => setForm({ ...form, number: e.target.value })}
+                    placeholder="KA-20-1234"
+                    style={inputStyle}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(102,126,234,0.6)'; e.target.style.background = 'rgba(102,126,234,0.08)'; }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.05)'; }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    Bus Name
+                  </label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                    placeholder="Express Shuttle"
+                    style={inputStyle}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(102,126,234,0.6)'; e.target.style.background = 'rgba(102,126,234,0.08)'; }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.05)'; }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Route section */}
+              <div style={{
+                padding: '24px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '16px',
+                marginBottom: '20px',
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.35)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '20px' }}>
+                  Route
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                  <LocationPicker label="From" value={form.from} onChange={from => setForm({ ...form, from })} />
+                  {form.from && form.to && (
+                    <div style={{
+                      padding: '10px 14px',
+                      background: 'rgba(102,126,234,0.08)',
+                      border: '1px solid rgba(102,126,234,0.2)',
+                      borderRadius: '10px',
+                      color: '#818cf8',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      marginBottom: '20px',
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                    }}>
+                      <Navigation size={14} />
+                      {Utils.distance(form.from.lat, form.from.lng, form.to.lat, form.to.lng).toFixed(1)} km
+                    </div>
+                  )}
+                  <LocationPicker label="To" value={form.to} onChange={to => setForm({ ...form, to })} />
+                </div>
+              </div>
+
+              {/* Start time */}
+              <div style={{ marginBottom: '28px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  Departure Time
                 </label>
-                <input 
-                  type="text" 
-                  value={form.number} 
-                  onChange={e => setForm({ ...form, number: e.target.value })} 
-                  placeholder="e.g., KA-20-1234" 
-                  style={inputStyle} 
-                  onFocus={e => {
-                    e.target.style.borderColor = '#667eea';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0,0,0,0.1)';
-                  }}
-                  onBlur={e => {
-                    e.target.style.borderColor = '#334155';
-                    e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                  }}
-                  required 
+                <input
+                  type="time"
+                  value={form.time}
+                  onChange={e => setForm({ ...form, time: e.target.value })}
+                  style={{ ...inputStyle, colorScheme: 'dark' }}
+                  onFocus={e => { e.target.style.borderColor = 'rgba(102,126,234,0.6)'; e.target.style.background = 'rgba(102,126,234,0.08)'; }}
+                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.05)'; }}
+                  required
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
-                  Bus Name
-                </label>
-                <input 
-                  type="text" 
-                  value={form.name} 
-                  onChange={e => setForm({ ...form, name: e.target.value })} 
-                  placeholder="e.g., Express Shuttle" 
-                  style={inputStyle}
-                  onFocus={e => {
-                    e.target.style.borderColor = '#667eea';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0,0,0,0.1)';
-                  }}
-                  onBlur={e => {
-                    e.target.style.borderColor = '#334155';
-                    e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                  }}
-                  required 
-                />
-              </div>
-
-              <LocationPicker label="From" value={form.from} onChange={from => setForm({ ...form, from })} />
-              <LocationPicker label="To" value={form.to} onChange={to => setForm({ ...form, to })} />
-
-              {form.from && form.to && (
-                <div style={{ 
-                  padding: '16px', 
-                  background: 'linear-gradient(135deg, #667eea15, #764ba215)', 
-                  border: '2px solid #667eea30', 
-                  borderRadius: '14px', 
-                  color: '#667eea', 
-                  fontWeight: '700',
-                  fontSize: '16px',
-                  animation: 'fadeIn 0.3s ease-out'
+              {gpsDenied && (
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '14px 16px',
+                  background: 'rgba(245,101,101,0.08)',
+                  border: '1px solid rgba(245,101,101,0.25)',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  color: '#fca5a5',
+                  lineHeight: '1.6',
                 }}>
-                  📏 Distance: {Utils.distance(form.from.lat, form.from.lng, form.to.lat, form.to.lng).toFixed(1)} km
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>
+                    Location access denied
+                  </strong>
+                  Go to your browser settings and allow location access for this site, then refresh the page.
                 </div>
               )}
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
-                  Start Time
-                </label>
-                <input 
-                  type="time" 
-                  value={form.time} 
-                  onChange={e => setForm({ ...form, time: e.target.value })} 
-                  style={inputStyle}
-                  onFocus={e => {
-                    e.target.style.borderColor = '#667eea';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0,0,0,0.1)';
-                  }}
-                  onBlur={e => {
-                    e.target.style.borderColor = '#334155';
-                    e.target.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                  }}
-                  required 
-                />
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={loading} 
-                style={{ 
-                  padding: '18px', 
-                  background: loading ? '#cbd5e0' : 'linear-gradient(135deg, #667eea, #764ba2)', 
-                  border: 'none', 
-                  borderRadius: '14px', 
-                  color: 'white', 
-                  fontSize: '18px', 
-                  fontWeight: '700', 
-                  cursor: loading ? 'not-allowed' : 'pointer', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '10px', 
-                  marginTop: '10px',
-                  boxShadow: loading ? 'none' : '0 8px 20px rgba(102, 126, 234, 0.4)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transform: 'scale(1)'
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  padding: '16px',
+                  background: loading ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #38bdf8, #0ea5e9)',
+                  border: loading ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                  borderRadius: '14px',
+                  color: loading ? 'rgba(255,255,255,0.4)' : 'white',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  boxShadow: loading ? 'none' : '0 8px 24px rgba(56,189,248,0.28)',
+                  transition: 'all 0.25s ease',
+                  letterSpacing: '-0.2px',
                 }}
-                onMouseEnter={e => {
-                  if (!loading) {
-                    e.currentTarget.style.transform = 'scale(1.02) translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 12px 28px rgba(102, 126, 234, 0.5)';
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!loading) {
-                    e.currentTarget.style.transform = 'scale(1) translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.4)';
-                  }
-                }}
+                onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 32px rgba(56,189,248,0.38)'; } }}
+                onMouseLeave={e => { if (!loading) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(56,189,248,0.28)'; } }}
               >
-                <Play size={22} />
-                {loading ? 'Getting GPS Location...' : 'Start GPS Tracking'}
+                <Play size={18} />
+                {loading ? 'Acquiring GPS...' : 'Start GPS Tracking'}
               </button>
             </form>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ 
-                padding: '24px', 
-                background: 'linear-gradient(135deg, #f7fafc, #edf2f7)', 
-                borderRadius: '16px',
-                animation: 'fadeIn 0.3s ease-out'
-              }}>
-                <div style={{ fontSize: '13px', color: '#718096', marginBottom: '8px', fontWeight: '600' }}>BUS DETAILS</div>
-                <div style={{ fontSize: '24px', fontWeight: '800', color: '#2d3748' }}>
-                  {form.name}
-                </div>
-                <div style={{ fontSize: '16px', color: '#64748b', marginTop: '4px', fontFamily: 'monospace' }}>
-                  {form.number}
-                </div>
-              </div>
-
-              <div style={{ 
-                padding: '24px', 
-                background: 'linear-gradient(135deg, #f7fafc, #edf2f7)', 
-                borderRadius: '16px',
-                animation: 'fadeIn 0.3s ease-out 0.1s backwards'
-              }}>
-                <div style={{ fontSize: '13px', color: '#718096', marginBottom: '8px', fontWeight: '600' }}>ROUTE</div>
-                <div style={{ fontSize: '18px', fontWeight: '700', color: '#2d3748' }}>
-                  {form.from?.name} → {form.to?.name}
-                </div>
-              </div>
-
-              <div style={{ 
-                padding: '24px', 
-                background: 'linear-gradient(135deg, #f0fff4, #e6ffed)', 
-                borderRadius: '16px', 
-                border: '2px solid #48bb78',
-                animation: 'fadeIn 0.3s ease-out 0.2s backwards'
-              }}>
-                <div style={{ fontSize: '13px', color: '#22543d', marginBottom: '8px', fontWeight: '600' }}>
-                  GPS LOCATION (Updates every 5s)
-                </div>
-                <div style={{ 
-                  fontSize: '17px', 
-                  fontWeight: '700', 
-                  color: '#276749', 
-                  fontFamily: 'monospace',
-                  wordBreak: 'break-all'
-                }}>
-                  {location ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}` : 'Acquiring GPS...'}
-                </div>
-              </div>
-
-              <button 
-                onClick={stop} 
-                style={{ 
-                  padding: '18px', 
-                  background: '#f56565', 
-                  border: 'none', 
-                  borderRadius: '14px', 
-                  color: 'white', 
-                  fontSize: '18px', 
-                  fontWeight: '700', 
-                  cursor: 'pointer', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '10px', 
-                  marginTop: '10px',
-                  boxShadow: '0 8px 20px rgba(245, 101, 101, 0.4)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  animation: 'fadeIn 0.3s ease-out 0.3s backwards'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = '#dc2626';
-                  e.currentTarget.style.transform = 'scale(1.02) translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 12px 28px rgba(220, 38, 38, 0.5)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = '#f56565';
-                  e.currentTarget.style.transform = 'scale(1) translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(245, 101, 101, 0.4)';
-                }}
-              >
-                <Square size={22} />
-                End Trip
-              </button>
+          </div>
+        ) : (
+          /* ── ACTIVE TRIP STATE ── */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeInUp 0.4s ease-out' }}>
+            <div style={{ marginBottom: '8px' }}>
+              <h1 style={{ fontSize: '30px', fontWeight: '800', color: 'white', margin: '0 0 6px', letterSpacing: '-1px' }}>
+                Trip Active
+              </h1>
+              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                Broadcasting location every 5 seconds
+              </p>
             </div>
-          )}
-        </div>
+
+            {/* Bus + Route info as two-col cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div style={{
+                padding: '20px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '16px',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.35)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
+                  Bus
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: 'white', marginBottom: '4px' }}>{form.name}</div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{form.number}</div>
+              </div>
+              <div style={{
+                padding: '20px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '16px',
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.35)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
+                  Route
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: 'white', lineHeight: '1.5' }}>
+                  {form.from?.name?.split(' ')[0]} → {form.to?.name?.split(' ')[0]}
+                </div>
+              </div>
+            </div>
+
+            {/* GPS live card */}
+            <div style={{
+              padding: '24px',
+              background: 'rgba(72,187,120,0.06)',
+              border: '1px solid rgba(72,187,120,0.2)',
+              borderRadius: '16px',
+              position: 'relative', overflow: 'hidden',
+            }}>
+              <div style={{
+                position: 'absolute', top: '-30px', right: '-30px',
+                width: '120px', height: '120px',
+                background: 'radial-gradient(circle, rgba(72,187,120,0.12) 0%, transparent 70%)',
+                borderRadius: '50%', pointerEvents: 'none',
+              }} />
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(72,187,120,0.7)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#48bb78', boxShadow: '0 0 6px #48bb78', animation: 'pulse 2s infinite' }} />
+                GPS Location — updating every 5s
+              </div>
+              <div style={{ fontSize: '20px', fontWeight: '700', color: '#48bb78', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                {location ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}` : 'Acquiring GPS...'}
+              </div>
+            </div>
+
+            {/* End trip button */}
+            <button
+              onClick={stop}
+              style={{
+                marginTop: '8px',
+                padding: '16px',
+                background: 'rgba(245,101,101,0.1)',
+                border: '1px solid rgba(245,101,101,0.3)',
+                borderRadius: '14px',
+                color: '#f56565',
+                fontSize: '16px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                transition: 'all 0.25s ease',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(245,101,101,0.18)';
+                e.currentTarget.style.borderColor = 'rgba(245,101,101,0.5)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(245,101,101,0.1)';
+                e.currentTarget.style.borderColor = 'rgba(245,101,101,0.3)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <Square size={18} />
+              End Trip
+            </button>
+          </div>
+        )}
       </div>
 
       <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(30px); }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
@@ -997,7 +1187,7 @@ function RealMap({ buses, selected }) {
         });
         
         const marker = L.marker([bus.lat, bus.lng], { icon }).addTo(map);
-        marker.bindPopup(`<div style="font-family:system-ui;padding:12px;min-width:220px"><div style="font-size:20px;font-weight:800;color:${bus.color};margin-bottom:8px">${bus.name}</div><div style="font-size:14px;color:#64748b;margin-bottom:14px;font-family:monospace">${bus.number}</div><div style="background:#f1f5f9;padding:12px;border-radius:10px;margin-bottom:10px"><div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:600">ROUTE</div><div style="font-size:14px;font-weight:700;color:#1e293b">${bus.route}</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px"><div><div style="font-size:11px;color:#64748b;font-weight:600">Speed</div><div style="font-size:18px;font-weight:800;color:#10b981">${Math.round(bus.speed||0)} km/h</div></div><div><div style="font-size:11px;color:#64748b;font-weight:600">Start</div><div style="font-size:18px;font-weight:800;color:#1e293b">${bus.time}</div></div></div><div style="background:#f1f5f9;padding:10px;border-radius:8px;font-size:12px;color:#10b981;font-family:monospace;word-break:break-all">📍 ${bus.lat.toFixed(6)}, ${bus.lng.toFixed(6)}</div></div>`);
+        marker.bindPopup(`<div style="font-family:system-ui;padding:12px;min-width:220px"><div style="font-size:20px;font-weight:800;color:${bus.color};margin-bottom:8px">${bus.name}</div><div style="font-size:14px;color:#64748b;margin-bottom:14px;font-family:monospace">${bus.number}</div><div style="background:#f1f5f9;padding:12px;border-radius:10px;margin-bottom:10px"><div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:600">ROUTE</div><div style="font-size:14px;font-weight:700;color:#1e293b">${bus.route}</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px"><div><div style="font-size:11px;color:#64748b;font-weight:600">Speed</div><div style="font-size:18px;font-weight:800;color:#10b981">${Math.round(bus.speed||0)} km/h</div></div><div><div style="font-size:11px;color:#64748b;font-weight:600">Start</div><div style="font-size:18px;font-weight:800;color:#1e293b">${bus.time}</div></div></div><div style="background:#f1f5f9;padding:10px;border-radius:8px;font-size:12px;color:#10b981;font-family:monospace;word-break:break-all">${bus.lat.toFixed(6)}, ${bus.lng.toFixed(6)}</div></div>`);
         
         if (isSelected) marker.openPopup();
         markersRef.current[bus.number] = marker;
@@ -1102,7 +1292,7 @@ function RealMap({ buses, selected }) {
             fontWeight: '600',
             animation: 'fadeIn 0.5s ease-out 0.2s backwards'
           }}>
-            🗺️ Real-time GPS • Updates every 5s
+            Real-time GPS • Updates every 5s
           </div>
         </>
       )}
@@ -1126,46 +1316,93 @@ function RealMap({ buses, selected }) {
 function Passenger({ onBack }) {
   const [buses, setBuses] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   const hasAutoSelected = useRef(false);
 
   useEffect(() => {
-    const update = all => {
-      setBuses(all);
-      const active = all.filter(b => b.active);
-      if (active.length > 0 && !hasAutoSelected.current) {
-        setSelected(active[0]);
-        hasAutoSelected.current = true;
-      }
-    };
-    return DB.subscribe(update);
+    const handler = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
   }, []);
+
+  useEffect(() => {
+    // Always subscribe to local DB (catches same-device conductor)
+    const unsubLocal = DB.subscribe(list => {
+      setBuses(prev => {
+        // Merge: remote (Firebase) records take precedence; local fills the rest
+        const remoteIds = new Set(prev.filter(b => b._remote).map(b => b.id))
+        // Only include active local buses not already covered by Firebase
+        const localOnly = list.filter(b => b.active && !remoteIds.has(b.id))
+        return [...prev.filter(b => b._remote), ...localOnly]
+      })
+    })
+
+    // Subscribe to Firebase for cross-device updates
+    const unsubRemote = fbSubscribeBuses(remoteBuses => {
+      const live = remoteBuses.map(b => ({
+        ...b,
+        updated: b.updatedAt ?? b.updated,
+        active:  true,
+        status:  'live',
+        _remote: true,   // flag so the merge above knows this came from Firebase
+      }))
+      setBuses(prev => {
+        // Keep local-only buses, replace/add all remote ones
+        const localOnly = prev.filter(b => !b._remote)
+        const merged    = [...localOnly]
+        for (const rb of live) {
+          const idx = merged.findIndex(b => b.id === rb.id)
+          if (idx >= 0) merged[idx] = rb
+          else merged.push(rb)
+        }
+        return merged
+      })
+    })
+
+    return () => {
+      unsubLocal()
+      unsubRemote()
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasAutoSelected.current) return
+    const active = buses.filter(b => b.active)
+    if (active.length > 0) {
+      setSelected(active[0])
+      hasAutoSelected.current = true
+    }
+  }, [buses])
 
   const active = buses.filter(b => b.active);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0f172a', overflow: 'hidden' }}>
       <div style={{ 
-        padding: '18px 28px', 
-        background: 'linear-gradient(135deg, #667eea, #764ba2)', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        boxShadow: '0 4px 15px rgba(0,0,0,0.3)', 
-        zIndex: 10 
+        padding: '16px 24px',
+        background: 'rgba(255,255,255,0.03)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: 10,
+        flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <Users size={32} color="white" strokeWidth={2.5} />
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '800', color: 'white', letterSpacing: '-0.5px' }}>
+          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: 'white', letterSpacing: '-0.5px' }}>
             Live Bus Tracker
           </h1>
           <div style={{ 
-            padding: '6px 14px', 
-            background: 'rgba(255,255,255,0.25)', 
-            borderRadius: '14px', 
-            fontSize: '15px', 
+            padding: '5px 12px',
+            background: 'rgba(72,187,120,0.12)',
+            border: '1px solid rgba(72,187,120,0.25)',
+            borderRadius: '20px',
+            fontSize: '13px',
             fontWeight: '700',
-            backdropFilter: 'blur(10px)'
+            color: '#48bb78',
           }}>
             {active.length} Live
           </div>
@@ -1173,16 +1410,15 @@ function Passenger({ onBack }) {
         <button 
           onClick={onBack} 
           style={{ 
-            padding: '12px 24px', 
-            background: 'rgba(255,255,255,0.2)', 
-            border: '2px solid rgba(255,255,255,0.3)', 
-            borderRadius: '12px', 
-            color: 'white', 
-            fontSize: '15px', 
-            fontWeight: '700', 
+            padding: '9px 18px',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '10px',
+            color: 'rgba(255,255,255,0.8)',
+            fontSize: '14px',
+            fontWeight: '600',
             cursor: 'pointer',
-            backdropFilter: 'blur(10px)',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.2s ease',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
@@ -1197,20 +1433,29 @@ function Passenger({ onBack }) {
         </button>
       </div>
       
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <div style={{ 
-          width: '400px', 
-          background: '#1e293b', 
-          borderRight: '1px solid #334155', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          overflowY: 'auto' 
+      <div style={{
+        display: 'flex',
+        flex: 1,
+        overflow: 'hidden',
+        flexDirection: isMobile ? 'column' : 'row',
+      }}>
+        <div style={{
+          width: isMobile ? '100%' : '380px',
+          height: isMobile ? 'auto' : '100%',
+          maxHeight: isMobile ? '42vh' : 'none',
+          background: '#0d1117',
+          borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.07)',
+          borderBottom: isMobile ? '1px solid rgba(255,255,255,0.07)' : 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          flexShrink: 0,
         }}>
           <div style={{ padding: '24px' }}>
             <div style={{ 
               fontSize: '13px', 
               fontWeight: '700', 
-              color: '#64748b', 
+              color: 'rgba(255,255,255,0.3)', 
               textTransform: 'uppercase', 
               letterSpacing: '1.2px', 
               marginBottom: '18px' 
@@ -1228,7 +1473,7 @@ function Passenger({ onBack }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {active.map((bus, idx) => {
                   const isSelected = selected?.number === bus.number;
-                  const age = Math.round((Date.now() - bus.updated) / 1000);
+                  const age      = Math.max(0, Math.round((Date.now() - (bus.updatedAt ?? bus.updated)) / 1000))
                   return (
                     <div 
                       key={bus.number} 
@@ -1323,9 +1568,31 @@ function Passenger({ onBack }) {
                           <span style={{ opacity: 0.7 }}>Speed:</span> {Math.round(bus.speed)} km/h
                         </div>
                         <div>
-                          <span style={{ opacity: 0.7 }}>Updated:</span> {age}s ago
+                          <span style={{ opacity: 0.7 }}>Updated:</span>{' '}
+                          {age <= 10  ? <span style={{ color: '#48bb78', fontWeight: 700 }}>{age}s ago ✓</span>
+                           : age <= 30 ? <span style={{ color: '#f6c90e' }}>{age}s ago</span>
+                           : age < 3600 ? <span style={{ color: '#94a3b8' }}>{age}s ago</span>
+                           : <span style={{ color: '#94a3b8' }}>{Math.floor(age/3600)}h ago</span>}
                         </div>
                       </div>
+
+                      {Utils.eta(bus) && (
+                        <div style={{
+                          marginTop: '10px',
+                          padding: '8px 12px',
+                          background: isSelected ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.2)',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          color: 'rgba(255,255,255,0.95)',
+                          fontWeight: '700',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}>
+                          <span style={{ opacity: 0.7 }}>ETA to {bus.to?.name?.split(' ')[0]}:</span>
+                          <span style={{ color: '#48bb78' }}>{Utils.eta(bus)}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1334,7 +1601,12 @@ function Passenger({ onBack }) {
           </div>
         </div>
         
-        <div style={{ flex: 1, position: 'relative', background: '#0f172a' }}>
+        <div style={{
+          flex: 1,
+          position: 'relative',
+          background: '#0f172a',
+          minHeight: isMobile ? '58vh' : '100%',
+        }}>
           {active.length === 0 ? (
             <div style={{ 
               width: '100%', 
@@ -1382,3 +1654,4 @@ export default function App() {
     </>
   );
 }
+

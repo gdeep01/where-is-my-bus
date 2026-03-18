@@ -1,9 +1,8 @@
-import { expect, test } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { expect, test } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import App from './App'
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeDefined();
-});
+test('renders landing page', () => {
+  render(<App />)
+  expect(screen.getByText(/Where is My Bus/i)).toBeDefined()
+})
